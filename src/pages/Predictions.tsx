@@ -36,14 +36,15 @@ export default function Predictions() {
   ];
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
+    <div className="p-4 lg:p-8 space-y-8 animate-fade-in max-w-[1800px] mx-auto">
       {/* Hero Section */}
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-gradient-gold">AI-Powered Bitcoin Price Predictions</h1>
-        <p className="text-muted-foreground">
+      <div className="text-center space-y-3 py-4">
+        <h1 className="text-4xl font-bold text-gradient-gold tracking-tight">AI-Powered Bitcoin Price Predictions</h1>
+        <p className="text-muted-foreground text-lg">
           Unified Transformer Model with Sentiment Analysis
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/30">
+          <span className="w-1.5 h-1.5 rounded-full bg-success pulse-live" />
           Last updated: {new Date().toLocaleString()}
         </p>
       </div>

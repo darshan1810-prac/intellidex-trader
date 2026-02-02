@@ -87,22 +87,30 @@ export function PriceChart({ data, predictions, className }: PriceChartProps) {
   };
 
   return (
-    <Card className={cn("bg-card border-border", className)}>
-      <CardHeader className="pb-3">
+    <Card className={cn("", className)}>
+      <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <CardTitle className="text-lg font-semibold">BTC/USD Price Chart</CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-xl font-semibold">BTC/USD Price Chart</CardTitle>
+            <span className="px-2 py-0.5 rounded-full bg-success/10 text-success text-xs font-medium flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-success pulse-live" />
+              Live
+            </span>
+          </div>
           
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Timeframe selector */}
-            <div className="flex rounded-lg border border-border overflow-hidden">
+            <div className="flex rounded-xl bg-muted/30 p-1">
               {timeframes.map((tf) => (
                 <Button
                   key={tf}
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "rounded-none h-8 px-3 text-xs",
-                    selectedTimeframe === tf && "bg-primary/10 text-primary"
+                    "rounded-lg h-8 px-3.5 text-xs font-medium transition-all",
+                    selectedTimeframe === tf 
+                      ? "bg-primary text-primary-foreground shadow-sm" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-transparent"
                   )}
                   onClick={() => setSelectedTimeframe(tf)}
                 >
@@ -112,15 +120,17 @@ export function PriceChart({ data, predictions, className }: PriceChartProps) {
             </div>
 
             {/* Interval selector */}
-            <div className="flex rounded-lg border border-border overflow-hidden">
+            <div className="flex rounded-xl bg-muted/30 p-1">
               {intervals.map((interval) => (
                 <Button
                   key={interval}
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "rounded-none h-8 px-2 text-xs",
-                    selectedInterval === interval && "bg-primary/10 text-primary"
+                    "rounded-lg h-8 px-2.5 text-xs font-medium transition-all",
+                    selectedInterval === interval 
+                      ? "bg-card text-foreground shadow-sm" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-transparent"
                   )}
                   onClick={() => setSelectedInterval(interval)}
                 >
@@ -132,30 +142,33 @@ export function PriceChart({ data, predictions, className }: PriceChartProps) {
         </div>
 
         {/* Overlay toggles */}
-        <div className="flex flex-wrap gap-2 mt-3">
+        <div className="flex flex-wrap gap-2 mt-4">
           <Toggle 
             size="sm" 
             pressed={showMA20} 
             onPressedChange={setShowMA20}
-            className="h-7 text-xs data-[state=on]:bg-chart-volume/20 data-[state=on]:text-chart-volume"
+            className="h-8 px-3 text-xs rounded-lg border-0 data-[state=on]:bg-chart-volume/15 data-[state=on]:text-chart-volume font-medium"
           >
+            <span className="w-2 h-2 rounded-full bg-chart-volume mr-2" />
             MA(20)
           </Toggle>
           <Toggle 
             size="sm" 
             pressed={showMA50} 
             onPressedChange={setShowMA50}
-            className="h-7 text-xs data-[state=on]:bg-warning/20 data-[state=on]:text-warning"
+            className="h-8 px-3 text-xs rounded-lg border-0 data-[state=on]:bg-warning/15 data-[state=on]:text-warning font-medium"
           >
+            <span className="w-2 h-2 rounded-full bg-warning mr-2" />
             MA(50)
           </Toggle>
           <Toggle 
             size="sm" 
             pressed={showPredictions} 
             onPressedChange={setShowPredictions}
-            className="h-7 text-xs data-[state=on]:bg-primary/20 data-[state=on]:text-primary"
+            className="h-8 px-3 text-xs rounded-lg border-0 data-[state=on]:bg-primary/15 data-[state=on]:text-primary font-medium"
           >
-            Predictions
+            <span className="w-2 h-2 rounded-full bg-primary mr-2" />
+            AI Predictions
           </Toggle>
         </div>
       </CardHeader>

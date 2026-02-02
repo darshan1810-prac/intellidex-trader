@@ -27,24 +27,28 @@ export function MetricCard({
   children,
 }: MetricCardProps) {
   return (
-    <Card className={cn("metric-card card-interactive bg-card border-border", className)}>
-      <CardContent className="p-6">
+    <Card className={cn("card-interactive group", className)}>
+      <CardContent className="p-5">
         <div className="flex items-start justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <div className="flex items-baseline gap-2">
-              <p className="text-2xl font-bold font-mono-numbers">{value}</p>
+            <div className="flex items-baseline gap-2.5">
+              <p className="text-2xl font-bold font-mono-numbers tracking-tight">{value}</p>
               {change !== undefined && (
                 <span
                   className={cn(
-                    "flex items-center gap-0.5 text-sm font-medium",
-                    change > 0 ? "text-success" : change < 0 ? "text-destructive" : "text-muted-foreground"
+                    "flex items-center gap-1 text-sm font-semibold px-2 py-0.5 rounded-full",
+                    change > 0 
+                      ? "text-success bg-success/10" 
+                      : change < 0 
+                        ? "text-destructive bg-destructive/10" 
+                        : "text-muted-foreground bg-muted/50"
                   )}
                 >
                   {change > 0 ? (
-                    <TrendingUp className="w-3 h-3" />
+                    <TrendingUp className="w-3.5 h-3.5" />
                   ) : change < 0 ? (
-                    <TrendingDown className="w-3 h-3" />
+                    <TrendingDown className="w-3.5 h-3.5" />
                   ) : null}
                   {change > 0 ? "+" : ""}{change}%
                 </span>
@@ -58,7 +62,7 @@ export function MetricCard({
             )}
           </div>
           {icon && (
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors">
               {icon}
             </div>
           )}

@@ -40,21 +40,21 @@ export function TopNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center px-4 lg:px-6">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 mr-6">
+        <Link to="/" className="flex items-center gap-3 mr-8 group">
           <div className="relative">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-warning flex items-center justify-center shadow-lg shadow-primary/20 group-hover:shadow-primary/30 transition-shadow">
               <TrendingUp className="w-5 h-5 text-primary-foreground" />
             </div>
-            <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-success rounded-full pulse-live" />
+            <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-success rounded-full pulse-live ring-2 ring-background" />
           </div>
-          <span className="text-xl font-bold text-gradient-gold hidden sm:block">IntelliDex</span>
+          <span className="text-xl font-bold text-gradient-gold hidden sm:block tracking-tight">IntelliDex</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-1 flex-1">
+        <nav className="hidden lg:flex items-center gap-0.5 flex-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -62,13 +62,13 @@ export function TopNav() {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                  "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                   isActive 
-                    ? "bg-primary/10 text-primary" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    ? "bg-primary/10 text-primary shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                 )}
               >
-                <item.icon className="w-4 h-4" />
+                <item.icon className={cn("w-4 h-4", isActive && "text-primary")} />
                 <span className="hidden xl:block">{item.label}</span>
               </Link>
             );
@@ -76,12 +76,15 @@ export function TopNav() {
         </nav>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-3 ml-auto">
           {/* Live Price Ticker */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border">
-            <span className="text-xs text-muted-foreground">BTC</span>
-            <span className="text-sm font-mono font-semibold">$52,347.82</span>
-            <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30">
+          <div className="hidden md:flex items-center gap-3 px-4 py-2 rounded-xl bg-card/80 border border-border/50 backdrop-blur-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-success pulse-live" />
+              <span className="text-xs font-medium text-muted-foreground">BTC</span>
+            </div>
+            <span className="text-sm font-mono font-bold tracking-tight">$52,347.82</span>
+            <Badge variant="outline" className="text-xs font-semibold bg-success/10 text-success border-success/20 px-2">
               +2.34%
             </Badge>
           </div>
