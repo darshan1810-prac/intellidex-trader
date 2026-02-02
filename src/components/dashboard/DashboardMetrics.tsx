@@ -13,7 +13,7 @@ export function DashboardMetrics() {
   const accuracySparkline = [75, 78, 72, 80, 82, 79, 77, 81, 83, 78];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
       {/* Current BTC Price */}
       <MetricCard
         title="Current BTC Price"
