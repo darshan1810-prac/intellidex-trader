@@ -12,7 +12,8 @@ import {
   Bell,
   Settings,
   Menu,
-  X
+  X,
+  Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,11 +24,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useStore } from "@/store/useStore";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/predictions", label: "Predictions", icon: TrendingUp },
   { path: "/trading", label: "Trading", icon: LineChart },
+  { path: "/trading-bots", label: "Trading Bots", icon: Bot },
   { path: "/security", label: "Security Monitor", icon: Shield },
   { path: "/blockchain", label: "Blockchain Verification", icon: Blocks },
   { path: "/analytics", label: "Performance Analytics", icon: BarChart3 },
@@ -38,6 +41,11 @@ const navItems = [
 export function TopNav() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { currentPrice, priceStats, wsConnected, selectedSymbol } = useStore();
+  
+  const symbolName = selectedSymbol?.replace('USDT', '') || 'BTC';
+  const changePercent = priceStats?.changePercent24h || 0;
+  const isPositive = changePercent >= 0;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
@@ -80,13 +88,31 @@ export function TopNav() {
           {/* Live Price Ticker */}
           <div className="hidden md:flex items-center gap-3 px-4 py-2 rounded-xl bg-card/80 border border-border/50 backdrop-blur-sm">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-success pulse-live" />
-              <span className="text-xs font-medium text-muted-foreground">BTC</span>
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                wsConnected ? "bg-success pulse-live" : "bg-warning"
+              )} />
+              <span className="text-xs font-medium text-muted-foreground">{symbolName}</span>
             </div>
-            <span className="text-sm font-mono font-bold tracking-tight">$52,347.82</span>
-            <Badge variant="outline" className="text-xs font-semibold bg-success/10 text-success border-success/20 px-2">
-              +2.34%
-            </Badge>
+            <span className="text-sm font-mono font-bold tracking-tight">
+              {currentPrice 
+                ? `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : '---'
+              }
+            </span>
+            {priceStats && (
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-xs font-semibold px-2",
+                  isPositive 
+                    ? "bg-success/10 text-success border-success/20" 
+                    : "bg-destructive/10 text-destructive border-destructive/20"
+                )}
+              >
+                {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
+              </Badge>
+            )}
           </div>
 
           {/* Notifications */}

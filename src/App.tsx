@@ -7,6 +7,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
 import Predictions from "./pages/Predictions";
 import Trading from "./pages/Trading";
+import TradingBots from "./pages/TradingBots";
 import SecurityMonitor from "./pages/SecurityMonitor";
 import BlockchainVerification from "./pages/BlockchainVerification";
 import Analytics from "./pages/Analytics";
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/" element={<Dashboard />} />
             <Route path="/predictions" element={<Predictions />} />
             <Route path="/trading" element={<Trading />} />
+            <Route path="/trading-bots" element={<TradingBots />} />
             <Route path="/security" element={<SecurityMonitor />} />
             <Route path="/blockchain" element={<BlockchainVerification />} />
             <Route path="/analytics" element={<Analytics />} />
