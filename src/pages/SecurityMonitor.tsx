@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Shield, AlertTriangle, AlertCircle, CheckCircle, Search, RefreshCw, ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Shield, AlertTriangle, AlertCircle, CheckCircle, Search, RefreshCw, ExternalLink, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,20 +7,30 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-import { securityAlerts, transactions } from "@/lib/mockData";
+import { useStore } from "@/store/useStore";
+import { useRealTimeData } from "@/hooks/useRealTimeData";
 import { cn } from "@/lib/utils";
 
 export default function SecurityMonitor() {
   const [searchHash, setSearchHash] = useState("");
   const [searchAddress, setSearchAddress] = useState("");
-  const [analyzedRisk, setAnalyzedRisk] = useState<number | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    riskScore: number;
+    riskLevel: string;
+    factors: Record<string, any>;
+    recommendations: string[];
+  } | null>(null);
 
-  const riskDistribution = [
-    { name: "Safe", value: securityAlerts.safe, color: "hsl(var(--success))" },
-    { name: "Medium", value: securityAlerts.medium, color: "hsl(var(--warning))" },
-    { name: "High", value: securityAlerts.high, color: "hsl(var(--chart-bearish))" },
-    { name: "Critical", value: securityAlerts.critical, color: "hsl(var(--destructive))" },
-  ];
+  const { alerts, transactions, alertStats } = useStore();
+  const { refreshSecurityData, analyzeTransaction } = useRealTimeData();
+
+  const riskDistribution = alertStats ? [
+    { name: "Safe", value: alertStats.safe, color: "hsl(var(--success))" },
+    { name: "Medium", value: alertStats.medium, color: "hsl(var(--warning))" },
+    { name: "High", value: alertStats.high, color: "hsl(var(--chart-bearish))" },
+    { name: "Critical", value: alertStats.critical, color: "hsl(var(--destructive))" },
+  ] : [];
 
   const threatTrend = Array.from({ length: 30 }, (_, i) => ({
     day: i + 1,
@@ -29,7 +39,7 @@ export default function SecurityMonitor() {
 
   const threatTypes = [
     { type: "Phishing", count: 45 },
-    { type: "Unusual Patterns", count: 32 },
+    { type: "Unusual Patterns", count: alerts.filter(a => a.type === 'Unusual Pattern').length || 32 },
     { type: "High-Value Movements", count: 28 },
     { type: "Known Bad Actors", count: 12 },
     { type: "Time Anomalies", count: 8 },
@@ -49,8 +59,23 @@ export default function SecurityMonitor() {
     return "bg-destructive/20";
   };
 
-  const handleAnalyze = () => {
-    setAnalyzedRisk(Math.floor(Math.random() * 100));
+  const handleAnalyze = async () => {
+    const hash = searchHash || searchAddress;
+    if (!hash) return;
+
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeTransaction(hash);
+      setAnalysisResult(result);
+    } catch (error) {
+      console.error('Analysis failed:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    await refreshSecurityData();
   };
 
   return (
@@ -71,7 +96,7 @@ export default function SecurityMonitor() {
                 <AlertCircle className="w-5 h-5 text-destructive" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-destructive">{securityAlerts.critical}</div>
+                <div className="text-2xl font-bold text-destructive">{alertStats?.critical || 0}</div>
                 <div className="text-xs text-muted-foreground">Critical Alerts</div>
               </div>
             </div>
@@ -85,7 +110,7 @@ export default function SecurityMonitor() {
                 <AlertTriangle className="w-5 h-5 text-chart-bearish" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-chart-bearish">{securityAlerts.high}</div>
+                <div className="text-2xl font-bold text-chart-bearish">{alertStats?.high || 0}</div>
                 <div className="text-xs text-muted-foreground">High Risk</div>
               </div>
             </div>
@@ -99,7 +124,7 @@ export default function SecurityMonitor() {
                 <Shield className="w-5 h-5 text-warning" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-warning">{securityAlerts.medium}</div>
+                <div className="text-2xl font-bold text-warning">{alertStats?.medium || 0}</div>
                 <div className="text-xs text-muted-foreground">Medium Risk</div>
               </div>
             </div>
@@ -113,7 +138,7 @@ export default function SecurityMonitor() {
                 <CheckCircle className="w-5 h-5 text-success" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-success">{securityAlerts.safe}</div>
+                <div className="text-2xl font-bold text-success">{alertStats?.safe || 0}</div>
                 <div className="text-xs text-muted-foreground">Safe Transactions</div>
               </div>
             </div>
@@ -131,7 +156,7 @@ export default function SecurityMonitor() {
                   <Shield className="w-5 h-5 text-primary" />
                   Real-Time Transaction Monitor
                 </CardTitle>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleRefresh}>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh
                 </Button>
@@ -153,10 +178,12 @@ export default function SecurityMonitor() {
                   <tbody>
                     {transactions.map((tx, index) => (
                       <tr key={index} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                        <td className="py-3 px-4 text-sm text-muted-foreground">{tx.timestamp}</td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">
+                          {new Date(tx.timestamp).toLocaleTimeString()}
+                        </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm">{tx.hash}</span>
+                            <span className="font-mono text-sm">{tx.hash.slice(0, 10)}...{tx.hash.slice(-4)}</span>
                             <ExternalLink className="w-3 h-3 text-muted-foreground" />
                           </div>
                         </td>
@@ -177,7 +204,7 @@ export default function SecurityMonitor() {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <Badge className={cn(
-                            tx.status === "safe" && "bg-success/20 text-success border-success/30",
+                            tx.status === "low" && "bg-success/20 text-success border-success/30",
                             tx.status === "medium" && "bg-warning/20 text-warning border-warning/30",
                             tx.status === "high" && "bg-chart-bearish/20 text-chart-bearish border-chart-bearish/30",
                             tx.status === "critical" && "bg-destructive/20 text-destructive border-destructive/30"
@@ -216,7 +243,9 @@ export default function SecurityMonitor() {
                         className="pl-9 font-mono"
                       />
                     </div>
-                    <Button onClick={handleAnalyze}>Analyze</Button>
+                    <Button onClick={handleAnalyze} disabled={isAnalyzing}>
+                      {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Analyze"}
+                    </Button>
                   </div>
                 </TabsContent>
                 
@@ -231,23 +260,25 @@ export default function SecurityMonitor() {
                         className="pl-9 font-mono"
                       />
                     </div>
-                    <Button onClick={handleAnalyze}>Analyze</Button>
+                    <Button onClick={handleAnalyze} disabled={isAnalyzing}>
+                      {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Analyze"}
+                    </Button>
                   </div>
                 </TabsContent>
               </Tabs>
 
-              {analyzedRisk !== null && (
+              {analysisResult && (
                 <div className="p-6 rounded-lg bg-muted/30 space-y-4 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-semibold">Risk Score</span>
                     <div className={cn(
                       "text-4xl font-bold font-mono",
-                      getRiskColor(analyzedRisk)
+                      getRiskColor(analysisResult.riskScore)
                     )}>
-                      {analyzedRisk}/100
+                      {analysisResult.riskScore}/100
                     </div>
                   </div>
-                  <Progress value={analyzedRisk} className={cn("h-3", getRiskBg(analyzedRisk))} />
+                  <Progress value={analysisResult.riskScore} className={cn("h-3", getRiskBg(analysisResult.riskScore))} />
                   
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
                     <div className="space-y-2">
@@ -255,24 +286,47 @@ export default function SecurityMonitor() {
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Unusual Patterns</span>
-                          <Badge variant="outline" className="bg-warning/10 text-warning">Medium</Badge>
+                          <Badge variant="outline" className={cn(
+                            analysisResult.factors.unusualPatterns > 60 
+                              ? "bg-destructive/10 text-destructive" 
+                              : analysisResult.factors.unusualPatterns > 30 
+                                ? "bg-warning/10 text-warning"
+                                : "bg-success/10 text-success"
+                          )}>
+                            {analysisResult.factors.unusualPatterns > 60 ? "High" : analysisResult.factors.unusualPatterns > 30 ? "Medium" : "Low"}
+                          </Badge>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Known Bad Actors</span>
-                          <Badge variant="outline" className="bg-success/10 text-success">None</Badge>
+                          <Badge variant="outline" className={cn(
+                            analysisResult.factors.knownBadActors 
+                              ? "bg-destructive/10 text-destructive" 
+                              : "bg-success/10 text-success"
+                          )}>
+                            {analysisResult.factors.knownBadActors ? "Detected" : "None"}
+                          </Badge>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Transaction Velocity</span>
-                          <Badge variant="outline" className="bg-success/10 text-success">Normal</Badge>
+                          <Badge variant="outline" className={cn(
+                            analysisResult.factors.transactionVelocity > 60 
+                              ? "bg-warning/10 text-warning"
+                              : "bg-success/10 text-success"
+                          )}>
+                            {analysisResult.factors.transactionVelocity > 60 ? "Elevated" : "Normal"}
+                          </Badge>
                         </div>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <h4 className="font-semibold text-sm">Recommendations</h4>
                       <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Monitor for follow-up transactions</li>
-                        <li>• Check related addresses</li>
-                        <li>• Review transaction patterns</li>
+                        {analysisResult.recommendations.map((rec, i) => (
+                          <li key={i}>• {rec}</li>
+                        ))}
+                        {analysisResult.recommendations.length === 0 && (
+                          <li>• No immediate action required</li>
+                        )}
                       </ul>
                     </div>
                   </div>

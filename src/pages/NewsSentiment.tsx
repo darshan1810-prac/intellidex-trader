@@ -1,10 +1,12 @@
-import { Newspaper, TrendingUp, Search, ExternalLink, Filter } from "lucide-react";
+import { Newspaper, TrendingUp, Search, ExternalLink, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SentimentGauge } from "@/components/shared/SentimentGauge";
+import { useStore } from "@/store/useStore";
+import { useRealTimeData } from "@/hooks/useRealTimeData";
 import { 
   LineChart, 
   Line, 
@@ -16,14 +18,18 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
   Legend
 } from "recharts";
-import { newsItems, sentimentData } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 export default function NewsSentiment() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sentimentFilter, setSentimentFilter] = useState("all");
+  
+  const { sentiment, news } = useStore();
+  const { refreshSentiment } = useRealTimeData();
+
   const sentimentTrends = Array.from({ length: 7 }, (_, i) => ({
     day: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i],
     overall: 0.3 + Math.random() * 0.4,
@@ -55,24 +61,37 @@ export default function NewsSentiment() {
     "hsl(var(--warning))",
   ];
 
-  const getSentimentBadge = (sentiment: string) => {
-    switch (sentiment) {
-      case "bullish":
-        return <Badge className="bg-success/20 text-success border-success/30">Bullish</Badge>;
-      case "bearish":
-        return <Badge className="bg-destructive/20 text-destructive border-destructive/30">Bearish</Badge>;
-      default:
-        return <Badge className="bg-muted text-muted-foreground border-muted-foreground/30">Neutral</Badge>;
+  const getSentimentBadge = (sentimentScore: number) => {
+    if (sentimentScore > 0.3) {
+      return <Badge className="bg-success/20 text-success border-success/30">Bullish</Badge>;
+    } else if (sentimentScore < -0.3) {
+      return <Badge className="bg-destructive/20 text-destructive border-destructive/30">Bearish</Badge>;
     }
+    return <Badge className="bg-muted text-muted-foreground border-muted-foreground/30">Neutral</Badge>;
   };
+
+  const filteredNews = news.filter(item => {
+    const matchesSearch = searchQuery === "" || item.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSentiment = sentimentFilter === "all" ||
+      (sentimentFilter === "bullish" && item.sentiment > 0.3) ||
+      (sentimentFilter === "bearish" && item.sentiment < -0.3) ||
+      (sentimentFilter === "neutral" && item.sentiment >= -0.3 && item.sentiment <= 0.3);
+    return matchesSearch && matchesSentiment;
+  });
 
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold">News & Sentiment</h1>
-        <p className="text-muted-foreground text-sm">
-          Real-time market sentiment analysis from news and social media
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">News & Sentiment</h1>
+          <p className="text-muted-foreground text-sm">
+            Real-time market sentiment analysis from news and social media
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={refreshSentiment}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Refresh
+        </Button>
       </div>
 
       {/* Current Sentiment Overview */}
@@ -82,16 +101,21 @@ export default function NewsSentiment() {
             <div className="text-center md:text-left">
               <h2 className="text-lg font-semibold text-muted-foreground mb-2">Current Market Sentiment</h2>
               <div className="text-6xl font-bold text-gradient-gold mb-2">
-                {sentimentData.score > 0 ? "+" : ""}{sentimentData.score.toFixed(2)}
+                {sentiment ? (sentiment.score > 0 ? "+" : "") + sentiment.score.toFixed(2) : "0.00"}
               </div>
-              <Badge className="bg-success/20 text-success border-success/30 text-lg px-4 py-1">
-                {sentimentData.label}
+              <Badge className={cn(
+                "text-lg px-4 py-1",
+                sentiment?.label === "BULLISH" && "bg-success/20 text-success border-success/30",
+                sentiment?.label === "BEARISH" && "bg-destructive/20 text-destructive border-destructive/30",
+                sentiment?.label === "NEUTRAL" && "bg-muted text-muted-foreground"
+              )}>
+                {sentiment?.label || "NEUTRAL"}
               </Badge>
               <p className="text-sm text-muted-foreground mt-2">
-                Confidence: 87% • Based on {sentimentData.newsVolume} sources
+                Confidence: {sentiment?.confidence.toFixed(0) || 0}% • Based on {sentiment?.newsVolume || 0} sources
               </p>
             </div>
-            <SentimentGauge score={sentimentData.score} size="lg" />
+            <SentimentGauge score={sentiment?.score || 0} size="lg" />
           </div>
         </CardContent>
       </Card>
@@ -135,14 +159,19 @@ export default function NewsSentiment() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <CardTitle className="flex items-center gap-2">
                   <Newspaper className="w-5 h-5 text-primary" />
-                  Latest News
+                  Latest News ({filteredNews.length})
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Search news..." className="pl-9 w-[180px]" />
+                    <Input 
+                      placeholder="Search news..." 
+                      className="pl-9 w-[180px]"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                   </div>
-                  <Select defaultValue="all">
+                  <Select value={sentimentFilter} onValueChange={setSentimentFilter}>
                     <SelectTrigger className="w-[120px]">
                       <SelectValue placeholder="Sentiment" />
                     </SelectTrigger>
@@ -157,47 +186,52 @@ export default function NewsSentiment() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {newsItems.map((item) => (
-                <div 
-                  key={item.id}
-                  className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <h3 className="font-semibold hover:text-primary cursor-pointer transition-colors">
-                        {item.headline}
-                      </h3>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="font-medium">{item.source}</span>
-                        <span>•</span>
-                        <span>{item.timestamp}</span>
+              {filteredNews.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No news articles found</p>
+              ) : (
+                filteredNews.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <h3 className="font-semibold hover:text-primary cursor-pointer transition-colors">
+                          {item.title}
+                        </h3>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="font-medium">{item.source}</span>
+                          <span>•</span>
+                          <span>{new Date(item.timestamp).toLocaleString()}</span>
+                        </div>
                       </div>
+                      {getSentimentBadge(item.sentiment)}
                     </div>
-                    {getSentimentBadge(item.sentiment)}
-                  </div>
-                  
-                  <p className="text-sm text-muted-foreground">{item.summary}</p>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-2">
-                      {item.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">
-                        Relevance: <span className="text-primary font-semibold">{item.relevance}%</span>
-                      </span>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs">
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground">
+                          Sentiment: <span className={cn(
+                            "font-semibold",
+                            item.sentiment > 0.3 ? "text-success" : item.sentiment < -0.3 ? "text-destructive" : "text-muted-foreground"
+                          )}>
+                            {item.sentiment > 0 ? "+" : ""}{item.sentiment.toFixed(2)}
+                          </span>
+                        </span>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-xs"
+                        onClick={() => item.url && item.url !== '#' && window.open(item.url, '_blank')}
+                      >
                         <ExternalLink className="w-3 h-3 mr-1" />
                         Read More
                       </Button>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
