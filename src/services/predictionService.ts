@@ -218,6 +218,11 @@ class PredictionService {
     }
   }
 
+  // Get all current predictions
+  getPredictions(): Prediction[] {
+    return this.predictions;
+  }
+
   // Get prediction history
   getPredictionHistory(limit: number = 100): Prediction[] {
     return this.predictions
