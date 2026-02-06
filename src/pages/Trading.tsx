@@ -76,9 +76,9 @@ export default function Trading() {
     }
   };
 
-  const handleReset = () => {
-    const { tradingService } = require("@/services/tradingService");
-    tradingService.reset();
+  const handleReset = async () => {
+    const mod = await import("@/services/tradingService");
+    mod.tradingService.reset();
     refreshTradingData();
     toast.success("Account reset to $10,000");
   };
