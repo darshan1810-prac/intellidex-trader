@@ -53,12 +53,12 @@ export function TopNav() {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 mr-8 group">
           <div className="relative">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-warning flex items-center justify-center shadow-lg shadow-primary/20 group-hover:shadow-primary/30 transition-shadow">
-              <TrendingUp className="w-5 h-5 text-primary-foreground" />
+            <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center shadow-lg group-hover:shadow-black/30 transition-shadow">
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
             <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-success rounded-full pulse-live ring-2 ring-background" />
           </div>
-          <span className="text-xl font-bold text-gradient-gold hidden sm:block tracking-tight">IntelliDex</span>
+          <span className="text-xl font-bold text-foreground hidden sm:block tracking-tight">IntelliDex</span>
         </Link>
 
         {/* Desktop Navigation */}
