@@ -26,6 +26,11 @@ export interface SentimentAnalysis {
   }[];
 }
 
+const getNewsProxyUrl = () => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/functions/v1/news-proxy`;
+};
+
 class SentimentService {
   private cachedSentiment: number | null = null;
   private cacheExpiry: number | null = null;
@@ -37,7 +42,8 @@ class SentimentService {
     'adoption', 'institutional', 'ath', 'high', 'buy', 'long',
     'support', 'upgrade', 'partnership', 'growth', 'profit',
     'soar', 'jump', 'gain', 'rise', 'positive', 'optimistic',
-    'all-time high', 'etf', 'approval', 'milestone'
+    'all-time high', 'etf', 'approval', 'milestone', 'record',
+    'momentum', 'accumulation', 'demand'
   ];
 
   private readonly bearishKeywords = [
@@ -48,38 +54,29 @@ class SentimentService {
     'investigation', 'lawsuit', 'fraud'
   ];
 
-  // Keyword-based sentiment scoring
   analyzeSentiment(text: string): number {
     const lowerText = text.toLowerCase();
     let score = 0;
 
-    // Count bullish keywords
     this.bullishKeywords.forEach(keyword => {
       const matches = (lowerText.match(new RegExp(keyword, 'g')) || []).length;
       score += matches * 0.15;
     });
 
-    // Count bearish keywords
     this.bearishKeywords.forEach(keyword => {
       const matches = (lowerText.match(new RegExp(keyword, 'g')) || []).length;
       score -= matches * 0.15;
     });
 
-    // Normalize to -1 to 1
     return Math.max(-1, Math.min(1, score));
   }
 
-  // Fetch news from CryptoPanic API
+  // Fetch news via edge function proxy (avoids CORS)
   async fetchNews(): Promise<NewsArticle[]> {
     try {
-      const apiKey = import.meta.env.VITE_CRYPTOPANIC_API_KEY || 'free';
-      const response = await axios.get('https://cryptopanic.com/api/free/v1/posts/', {
-        params: {
-          auth_token: apiKey,
-          currencies: 'BTC',
-          filter: 'hot',
-          public: 'true'
-        },
+      const proxyUrl = getNewsProxyUrl();
+      const response = await axios.get(proxyUrl, {
+        params: { currencies: 'BTC', filter: 'hot' },
         timeout: 10000
       });
 
@@ -96,7 +93,6 @@ class SentimentService {
       return articles;
     } catch (error) {
       console.error('Error fetching news:', error);
-      // Return cached news or fallback
       if (this.cachedNews.length > 0) {
         return this.cachedNews;
       }
@@ -104,44 +100,19 @@ class SentimentService {
     }
   }
 
-  // Fallback news (in case API fails)
   private getFallbackNews(): NewsArticle[] {
     const now = new Date();
     return [
-      {
-        id: '1',
-        title: 'Bitcoin Maintains Strong Position as Market Stabilizes',
-        source: 'CoinDesk',
-        timestamp: now.toISOString(),
-        url: '#'
-      },
-      {
-        id: '2',
-        title: 'Institutional Interest in Crypto Continues to Grow',
-        source: 'Bloomberg',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        url: '#'
-      },
-      {
-        id: '3',
-        title: 'Major Exchange Reports Record Trading Volume',
-        source: 'CoinTelegraph',
-        timestamp: new Date(Date.now() - 7200000).toISOString(),
-        url: '#'
-      },
-      {
-        id: '4',
-        title: 'Regulatory Clarity Expected to Boost Adoption',
-        source: 'Reuters',
-        timestamp: new Date(Date.now() - 10800000).toISOString(),
-        url: '#'
-      }
+      { id: '1', title: 'Bitcoin Maintains Strong Position Above $97K as Market Stabilizes', source: 'CoinDesk', timestamp: now.toISOString(), url: '#' },
+      { id: '2', title: 'Institutional Interest in Crypto Continues to Grow with ETF Inflows', source: 'Bloomberg', timestamp: new Date(Date.now() - 3600000).toISOString(), url: '#' },
+      { id: '3', title: 'Major Exchange Reports Record Trading Volume This Week', source: 'CoinTelegraph', timestamp: new Date(Date.now() - 7200000).toISOString(), url: '#' },
+      { id: '4', title: 'Regulatory Clarity Expected to Boost Global Crypto Adoption', source: 'Reuters', timestamp: new Date(Date.now() - 10800000).toISOString(), url: '#' },
+      { id: '5', title: 'On-Chain Data Shows Strong Accumulation by Long-Term Holders', source: 'Glassnode', timestamp: new Date(Date.now() - 14400000).toISOString(), url: '#' },
+      { id: '6', title: 'DeFi Ecosystem Reaches New Milestones in Total Value Locked', source: 'DeFi Llama', timestamp: new Date(Date.now() - 18000000).toISOString(), url: '#' },
     ];
   }
 
-  // Get overall sentiment score
   async getSentimentScore(): Promise<number> {
-    // Use cache if available and not expired
     if (this.cachedSentiment !== null && this.cacheExpiry && this.cacheExpiry > Date.now()) {
       return this.cachedSentiment;
     }
@@ -149,16 +120,13 @@ class SentimentService {
     try {
       const news = await this.fetchNews();
       
-      // Calculate weighted sentiment from news headlines
       let totalScore = 0;
       let totalWeight = 0;
 
       news.forEach((article) => {
         const sentiment = this.analyzeSentiment(article.title);
         const age = Date.now() - new Date(article.timestamp).getTime();
-        
-        // Recent news has more weight
-        const weight = Math.exp(-age / (6 * 3600000)); // Decay over 6 hours
+        const weight = Math.exp(-age / (6 * 3600000));
         
         totalScore += sentiment * weight;
         totalWeight += weight;
@@ -166,18 +134,16 @@ class SentimentService {
 
       const sentimentScore = totalWeight > 0 ? totalScore / totalWeight : 0;
 
-      // Cache the result
       this.cachedSentiment = sentimentScore;
       this.cacheExpiry = Date.now() + this.CACHE_DURATION;
 
       return sentimentScore;
     } catch (error) {
       console.error('Error calculating sentiment:', error);
-      return this.cachedSentiment ?? 0; // Return cached or neutral
+      return this.cachedSentiment ?? 0;
     }
   }
 
-  // Get sentiment with full details
   async getSentimentAnalysis(): Promise<SentimentAnalysis> {
     const score = await this.getSentimentScore();
     const news = await this.fetchNews();
@@ -196,7 +162,6 @@ class SentimentService {
     };
   }
 
-  // Get all fetched news with sentiment
   async getNewsWithSentiment(): Promise<(NewsArticle & { sentiment: number })[]> {
     const news = await this.fetchNews();
     return news.map(article => ({

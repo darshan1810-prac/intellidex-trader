@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Clock, Download, Search } from "lucide-react";
+import { TrendingUp, TrendingDown, Clock, Download, Search, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,37 +16,53 @@ import {
   Tooltip, 
   ResponsiveContainer,
   Legend,
-  Area,
   ComposedChart
 } from "recharts";
-import { predictions, currentPrice, sentimentData } from "@/lib/mockData";
+import { useStore } from "@/store/useStore";
+import { useRealTimeData } from "@/hooks/useRealTimeData";
 import { cn } from "@/lib/utils";
 
 export default function Predictions() {
+  const { predictions, currentPrice, priceStats, sentiment, performanceMetrics } = useStore();
+  const { refreshPredictions } = useRealTimeData();
+
+  // Use store predictions or generate demo display
+  const displayPredictions = predictions.length > 0 ? predictions : [];
+
   // Generate chart data for prediction visualization
   const chartData = [
-    { time: "Now", actual: currentPrice.price, label: "Current" },
-    { time: "15m", pred15m: predictions[0].predictedPrice },
-    { time: "1h", pred1h: predictions[1].predictedPrice },
-    { time: "4h", pred4h: predictions[2].predictedPrice },
-    { time: "12h", pred12h: predictions[3].predictedPrice },
-    { time: "24h", pred24h: predictions[4].predictedPrice },
-    { time: "3d", pred3d: predictions[5].predictedPrice },
-    { time: "7d", pred7d: predictions[6].predictedPrice },
+    { time: "Now", actual: currentPrice || 0 },
+    ...displayPredictions.map(p => ({
+      time: p.horizon.replace(' minutes', 'm').replace(' hour', 'h').replace(' hours', 'h').replace(' days', 'd').replace(' day', 'd'),
+      predicted: p.predictedPrice,
+    }))
   ];
+
+  // Get recent verified predictions from history
+  const verifiedPredictions = predictions
+    .filter(p => p.actualPrice)
+    .slice(-5)
+    .reverse();
+
+  const sentimentScore = sentiment?.score || 0;
+  const latestRSI = displayPredictions[0]?.technicalIndicators?.rsi || '50.0';
+  const latestMACD = displayPredictions[0]?.technicalIndicators?.macd || '0.0';
+  const volatility = displayPredictions[0]?.technicalIndicators?.volatility || 0;
 
   return (
     <div className="p-4 lg:p-8 space-y-8 animate-fade-in max-w-[1800px] mx-auto">
       {/* Hero Section */}
-      <div className="text-center space-y-3 py-4">
-        <h1 className="text-4xl font-bold text-gradient-gold tracking-tight">AI-Powered Bitcoin Price Predictions</h1>
-        <p className="text-muted-foreground text-lg">
-          Unified Transformer Model with Sentiment Analysis
-        </p>
-        <p className="text-xs text-muted-foreground inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/30">
-          <span className="w-1.5 h-1.5 rounded-full bg-success pulse-live" />
-          Last updated: {new Date().toLocaleString()}
-        </p>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">AI-Powered Predictions</h1>
+          <p className="text-muted-foreground">
+            Multi-horizon price predictions with sentiment analysis
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={refreshPredictions}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Refresh Predictions
+        </Button>
       </div>
 
       {/* Current Market Status */}
@@ -57,27 +73,23 @@ export default function Predictions() {
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Current Price</h3>
               <PriceDisplay 
-                price={currentPrice.price} 
-                changePercent={currentPrice.change24h}
-                change={currentPrice.price * (currentPrice.change24h / 100)}
+                price={currentPrice || 0} 
+                changePercent={priceStats?.changePercent24h || 0}
+                change={priceStats?.change24h || 0}
                 size="xl"
               />
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">24h High:</span>
-                  <span className="ml-2 font-mono text-success">${currentPrice.high24h.toLocaleString()}</span>
+                  <span className="ml-2 font-mono text-success">${(priceStats?.high24h || 0).toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">24h Low:</span>
-                  <span className="ml-2 font-mono text-destructive">${currentPrice.low24h.toLocaleString()}</span>
+                  <span className="ml-2 font-mono text-destructive">${(priceStats?.low24h || 0).toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Volume:</span>
-                  <span className="ml-2 font-mono">${currentPrice.volume24h}B</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Market Cap:</span>
-                  <span className="ml-2 font-mono">${currentPrice.marketCap}T</span>
+                  <span className="ml-2 font-mono">{((priceStats?.volume24h || 0) / 1000).toFixed(1)}K</span>
                 </div>
               </div>
             </div>
@@ -85,10 +97,10 @@ export default function Predictions() {
             {/* Center: Sentiment */}
             <div className="flex flex-col items-center justify-center space-y-2 border-x border-border px-6">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Market Sentiment</h3>
-              <SentimentGauge score={sentimentData.score} size="lg" />
+              <SentimentGauge score={sentimentScore} size="lg" />
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span>Momentum: <span className="text-success">+0.12</span></span>
-                <span>News: {sentimentData.newsVolume}</span>
+                <span>Momentum: <span className={sentimentScore > 0 ? "text-success" : "text-destructive"}>{sentimentScore > 0 ? '+' : ''}{sentimentScore.toFixed(2)}</span></span>
+                <span>News: {sentiment?.newsVolume || 0}</span>
               </div>
             </div>
 
@@ -99,26 +111,28 @@ export default function Predictions() {
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-muted-foreground">RSI (14)</span>
-                    <span className="font-mono">62.5</span>
+                    <span className="font-mono">{parseFloat(latestRSI).toFixed(1)}</span>
                   </div>
-                  <Progress value={62.5} className="h-2" />
+                  <Progress value={parseFloat(latestRSI)} className="h-2" />
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">MACD</span>
-                  <span className="font-mono text-success">+124.5</span>
+                  <span className={cn("font-mono", parseFloat(latestMACD) >= 0 ? "text-success" : "text-destructive")}>
+                    {parseFloat(latestMACD) >= 0 ? '+' : ''}{parseFloat(latestMACD).toFixed(2)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Volume Trend</span>
                   <Badge variant="outline" className="bg-success/10 text-success border-success/30">
-                    Above Average
+                    {(displayPredictions[0]?.technicalIndicators?.volumeTrend || 1) > 1 ? 'Above Average' : 'Below Average'}
                   </Badge>
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-muted-foreground">Volatility</span>
-                    <span className="font-mono">Medium</span>
+                    <span className="font-mono">{volatility > 0.5 ? 'High' : volatility > 0.2 ? 'Medium' : 'Low'}</span>
                   </div>
-                  <Progress value={45} className="h-2" />
+                  <Progress value={Math.min(100, volatility * 100)} className="h-2" />
                 </div>
               </div>
             </div>
@@ -135,74 +149,72 @@ export default function Predictions() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-muted-foreground">Timeframe</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">Predicted Price</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">Change</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">Change %</th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-muted-foreground">Confidence</th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-muted-foreground">Direction</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">Sentiment Impact</th>
-                </tr>
-              </thead>
-              <tbody>
-                {predictions.map((pred, index) => (
-                  <tr 
-                    key={index}
-                    className="border-b border-border/50 hover:bg-muted/30 transition-colors"
-                  >
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium">{pred.horizon}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <span className="font-mono font-semibold text-lg">
-                        ${pred.predictedPrice.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <span className={cn(
-                        "font-mono",
-                        pred.change > 0 ? "text-success" : "text-destructive"
-                      )}>
-                        {pred.change > 0 ? "+" : ""}${pred.change.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <span className={cn(
-                        "font-mono font-semibold",
-                        pred.changePercent > 0 ? "text-success" : "text-destructive"
-                      )}>
-                        {pred.changePercent > 0 ? "+" : ""}{pred.changePercent.toFixed(2)}%
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <ConfidenceBadge confidence={pred.confidence} showLabel={false} />
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <div className="flex items-center justify-center">
-                        {pred.direction === "up" ? (
-                          <TrendingUp className="w-5 h-5 text-success" />
-                        ) : (
-                          <TrendingDown className="w-5 h-5 text-destructive" />
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <span className="font-mono text-primary">
-                        +{pred.sentimentImpact.toFixed(2)}%
-                      </span>
-                    </td>
+          {displayPredictions.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Generating predictions...</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-muted-foreground">Timeframe</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">Predicted Price</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">Change</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">Change %</th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-muted-foreground">Confidence</th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-muted-foreground">Direction</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">Sentiment Impact</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {displayPredictions.map((pred, index) => (
+                    <tr 
+                      key={pred.id || index}
+                      className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                    >
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">{pred.horizon}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className="font-mono font-semibold text-lg">
+                          ${pred.predictedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className={cn("font-mono", pred.change > 0 ? "text-success" : "text-destructive")}>
+                          {pred.change > 0 ? "+" : ""}${Math.abs(pred.change).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className={cn("font-mono font-semibold", pred.changePercent > 0 ? "text-success" : "text-destructive")}>
+                          {pred.changePercent > 0 ? "+" : ""}{pred.changePercent.toFixed(2)}%
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <ConfidenceBadge confidence={pred.confidence} showLabel={false} />
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex items-center justify-center">
+                          {pred.direction === "up" ? (
+                            <TrendingUp className="w-5 h-5 text-success" />
+                          ) : (
+                            <TrendingDown className="w-5 h-5 text-destructive" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className={cn("font-mono", pred.sentimentImpact >= 0 ? "text-primary" : "text-destructive")}>
+                          {pred.sentimentImpact >= 0 ? '+' : ''}{pred.sentimentImpact.toFixed(2)}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -216,11 +228,7 @@ export default function Predictions() {
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="hsl(var(--muted-foreground))"
-                  tick={{ fontSize: 12 }}
-                />
+                <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} />
                 <YAxis 
                   domain={['auto', 'auto']}
                   stroke="hsl(var(--muted-foreground))"
@@ -236,54 +244,8 @@ export default function Predictions() {
                   formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
                 />
                 <Legend />
-                
-                {/* Current price point */}
-                <Line 
-                  type="monotone" 
-                  dataKey="actual" 
-                  stroke="hsl(var(--foreground))"
-                  strokeWidth={3}
-                  dot={{ fill: 'hsl(var(--foreground))', r: 6 }}
-                  name="Current Price"
-                />
-                
-                {/* Prediction lines */}
-                <Line 
-                  type="monotone" 
-                  dataKey="pred15m" 
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  dot={{ fill: 'hsl(var(--primary))', r: 4 }}
-                  name="15min Prediction"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="pred1h" 
-                  stroke="hsl(var(--success))"
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  dot={{ fill: 'hsl(var(--success))', r: 4 }}
-                  name="1h Prediction"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="pred4h" 
-                  stroke="hsl(var(--warning))"
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  dot={{ fill: 'hsl(var(--warning))', r: 4 }}
-                  name="4h Prediction"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="pred24h" 
-                  stroke="hsl(var(--chart-volume))"
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  dot={{ fill: 'hsl(var(--chart-volume))', r: 4 }}
-                  name="24h Prediction"
-                />
+                <Line type="monotone" dataKey="actual" stroke="hsl(var(--foreground))" strokeWidth={3} dot={{ fill: 'hsl(var(--foreground))', r: 6 }} name="Current Price" />
+                <Line type="monotone" dataKey="predicted" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="4 2" dot={{ fill: 'hsl(var(--primary))', r: 4 }} name="Predicted Price" />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -294,15 +256,8 @@ export default function Predictions() {
       <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle>Historical Predictions Log</CardTitle>
+            <CardTitle>Prediction History</CardTitle>
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search predictions..." 
-                  className="pl-9 w-[200px]"
-                />
-              </div>
               <Button variant="outline" size="sm">
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
@@ -324,42 +279,46 @@ export default function Predictions() {
                 </tr>
               </thead>
               <tbody>
-                {[...Array(5)].map((_, index) => {
-                  const predicted = 52000 + Math.random() * 1000;
-                  const actual = predicted + (Math.random() - 0.5) * 500;
-                  const error = ((actual - predicted) / predicted * 100);
-                  const directionCorrect = Math.random() > 0.3;
-                  
-                  return (
-                    <tr key={index} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                      <td className="py-3 px-4 text-sm text-muted-foreground">
-                        {new Date(Date.now() - index * 3600000).toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge variant="outline">{["1H", "4H", "24H", "1H", "12H"][index]}</Badge>
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        ${predicted.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        ${actual.toFixed(2)}
-                      </td>
-                      <td className={cn(
-                        "py-3 px-4 text-right font-mono",
-                        Math.abs(error) < 1 ? "text-success" : Math.abs(error) < 2 ? "text-warning" : "text-destructive"
-                      )}>
-                        {error > 0 ? "+" : ""}{error.toFixed(2)}%
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        {directionCorrect ? (
-                          <Badge className="bg-success/20 text-success border-success/30">✓ Correct</Badge>
-                        ) : (
-                          <Badge className="bg-destructive/20 text-destructive border-destructive/30">✗ Wrong</Badge>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {verifiedPredictions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      Predictions will appear here once they're verified against actual prices
+                    </td>
+                  </tr>
+                ) : (
+                  verifiedPredictions.map((pred) => {
+                    const error = pred.actualPrice ? ((pred.actualPrice - pred.predictedPrice) / pred.predictedPrice * 100) : 0;
+                    return (
+                      <tr key={pred.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                        <td className="py-3 px-4 text-sm text-muted-foreground">
+                          {new Date(pred.timestamp).toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant="outline">{pred.horizon}</Badge>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          ${pred.predictedPrice.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          ${pred.actualPrice?.toFixed(2) || '—'}
+                        </td>
+                        <td className={cn(
+                          "py-3 px-4 text-right font-mono",
+                          Math.abs(error) < 1 ? "text-success" : Math.abs(error) < 2 ? "text-warning" : "text-destructive"
+                        )}>
+                          {error > 0 ? "+" : ""}{error.toFixed(2)}%
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {pred.directionCorrect ? (
+                            <Badge className="bg-success/20 text-success border-success/30">✓ Correct</Badge>
+                          ) : (
+                            <Badge className="bg-destructive/20 text-destructive border-destructive/30">✗ Wrong</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
